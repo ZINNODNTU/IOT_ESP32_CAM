@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Đăng nhập quản trị</title>
+    <style>
+      :root {
+        --bg: #070b16;
+        --panel: #101a34;
+        --panel-soft: #0c142b;
+        --text: #e5e7eb;
+        --muted: #9aa8c7;
+        --primary: #3b82f6;
+        --primary-600: #2563eb;
+        --danger: #ef4444;
+        --border: #24324f;
+        --shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(1000px 550px at 80% -20%, #1a2f65 0%, transparent 55%),
+          radial-gradient(900px 500px at -10% 110%, #132347 0%, transparent 50%),
+          linear-gradient(180deg, var(--bg) 0%, #060a14 100%);
+        padding: 16px;
+      }
+
+      .card {
+        width: min(440px, 94vw);
+        background: linear-gradient(180deg, var(--panel) 0%, var(--panel-soft) 100%);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: var(--shadow);
+      }
+
+      .brand {
+        margin-bottom: 14px;
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-size: 24px;
+      }
+
+      .brand p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      label {
+        display: block;
+        margin: 10px 0 6px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      input {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #0b1328;
+        color: var(--text);
+      }
+
+      button {
+        width: 100%;
+        margin-top: 14px;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 12px;
+        color: #fff;
+        background: var(--primary);
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button:hover { background: var(--primary-600); }
+
+      .error {
+        margin-top: 10px;
+        color: #fecaca;
+        background: rgba(239, 68, 68, 0.18);
+        border: 1px solid rgba(239, 68, 68, 0.45);
+        border-radius: 10px;
+        padding: 8px 10px;
+        font-size: 13px;
+      }
+
+      .links {
+        margin-top: 14px;
+        font-size: 13px;
+      }
+
+      .links a {
+        color: #bfdbfe;
+        text-decoration: none;
+      }
+
+      .links a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <form class="card" method="post" action="/admin/login">
+      <div class="brand">
+        <h1>Đăng nhập quản trị</h1>
+        <p>Truy cập khu vực quản trị để đăng ký khuôn mặt, quản lý dữ liệu và kiểm soát hệ thống điểm danh.</p>
+      </div>
+
+      <label for="username">Tài khoản</label>
+      <input id="username" name="username" type="text" required />
+
+      <label for="password">Mật khẩu</label>
+      <input id="password" name="password" type="password" required />
+
+      <button type="submit">Đăng nhập</button>
+
+      {% if error %}
+        <div class="error">{{ error }}</div>
+      {% end %}
+
+      <div class="links">
+        <a href="/attendance">← Về màn hình điểm danh</a>
+      </div>
+    </form>
+  </body>
+</html>

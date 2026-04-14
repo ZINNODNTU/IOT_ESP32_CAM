@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ title }}</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --panel: #121a31;
+        --panel-2: #0f172a;
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --border: #24324f;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: Inter, Segoe UI, Arial, sans-serif;
+        background: radial-gradient(1200px 600px at 70% -10%, #1d2d5c 0%, var(--bg) 45%);
+        color: var(--text);
+      }
+
+      .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+      .header { display: flex; justify-content: space-between; align-items: end; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+      .title { font-size: 24px; font-weight: 700; }
+      .subtitle { color: var(--muted); font-size: 14px; }
+
+      .grid { display: grid; grid-template-columns: 340px 1fr; gap: 16px; }
+      .panel {
+        background: linear-gradient(180deg, var(--panel), var(--panel-2));
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px;
+      }
+
+      .panel h2 { margin: 0 0 10px; font-size: 17px; }
+      .label { font-size: 13px; color: var(--muted); margin-bottom: 6px; display: block; }
+
+      input, select {
+        width: 100%;
+        background: #0b1328;
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+      }
+
+      .btn {
+        border: none; border-radius: 10px; padding: 10px 12px; cursor: pointer;
+        color: #fff; background: var(--primary); transition: 0.2s;
+      }
+      .btn:hover { background: var(--primary-hover); }
+      .btn-ghost { background: transparent; border: 1px solid var(--border); }
+      .btn-ghost:hover { border-color: var(--primary); }
+
+      .btn-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+
+      .status { margin-top: 8px; font-size: 13px; color: var(--muted); }
+      .status.ok { color: var(--success); }
+      .status.warn { color: var(--warning); }
+      .status.err { color: var(--danger); }
+
+      .known-list { margin: 0; padding-left: 18px; max-height: 160px; overflow: auto; }
+      .known-list li { margin: 4px 0; font-size: 14px; }
+
+      .main-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+      .streams { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px; }
+
+      .stream-card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #0b1328; }
+      .stream-head {
+        padding: 10px 12px; border-bottom: 1px solid var(--border);
+        display: flex; justify-content: space-between; align-items: center;
+      }
+      .chip { border: 1px solid #334155; color: #cbd5e1; border-radius: 999px; padding: 4px 8px; font-size: 12px; }
+      .stream-card img { width: 100%; display: block; background: #020617; }
+      .stream-body { padding: 10px 12px; }
+      .face-list { margin: 6px 0 0; padding-left: 18px; }
+      .face-list li { margin: 2px 0; font-size: 13px; color: #d1d5db; }
+
+      .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+      .stat { border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: #0b1328; }
+      .stat .k { font-size: 12px; color: var(--muted); }
+      .stat .v { font-size: 20px; font-weight: 700; margin-top: 4px; }
+
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { border-bottom: 1px solid #1f2a44; padding: 8px; text-align: left; }
+      th { color: #cbd5e1; font-weight: 600; }
+      tbody tr:hover { background: rgba(59,130,246,0.08); }
+
+      .table-wrap { overflow: auto; max-height: 250px; border: 1px solid var(--border); border-radius: 10px; }
+      .empty { color: var(--muted); font-size: 14px; }
+
+      @media (max-width: 1200px) {
+        .grid { grid-template-columns: 1fr; }
+      }
+
+      @media (max-width: 800px) {
+        .stats { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <div>
+          <div class="title">ESP32CAM Face Attendance</div>
+          <div class="subtitle">Server: {{ ip }}:3000 • Điểm danh tự động bằng nhận diện khuôn mặt</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <aside class="panel">
+          <h2>Đăng ký khuôn mặt mới</h2>
+
+          <label class="label" for="deviceSelect">Thiết bị nguồn</label>
+          <select id="deviceSelect">
+            {% for deviceId in deviceIds %}
+              <option value="{{ deviceId }}">{{ deviceId }}</option>
+            {% end %}
+          </select>
+
+          <label class="label" for="personName">Tên người</label>
+          <input id="personName" type="text" placeholder="Ví dụ: NguyenVanA" />
+
+          <button class="btn" id="registerBtn" style="width: 100%;">Lưu khuôn mặt từ frame hiện tại</button>
+          <div id="registerStatus" class="status">Nhập tên và chọn thiết bị để đăng ký.</div>
+
+          <hr style="border-color: var(--border); opacity: 0.5; margin: 14px 0" />
+
+          <h2>Điều khiển thiết bị</h2>
+          <div class="btn-grid">
+            <button class="btn" id="upButton">Up</button>
+            <button class="btn" id="downButton">Down</button>
+            <button class="btn" id="leftButton">Left</button>
+            <button class="btn" id="rightButton">Right</button>
+            <button class="btn btn-ghost" id="extraButton1">Extra 1</button>
+            <button class="btn btn-ghost" id="extraButton2">Extra 2</button>
+            <button class="btn btn-ghost" id="extraButton3">Extra 3</button>
+            <button class="btn btn-ghost" id="extraButton4">Extra 4</button>
+          </div>
+
+          <hr style="border-color: var(--border); opacity: 0.5; margin: 14px 0" />
+
+          <h2>Danh sách khuôn mặt đã đăng ký</h2>
+          <ul id="knownFacesList" class="known-list"></ul>
+          <div id="knownFacesEmpty" class="empty">Đang tải dữ liệu...</div>
+        </aside>
+
+        <main class="main-grid">
+          <section class="panel">
+            <h2>Tổng quan điểm danh</h2>
+            <div class="stats">
+              <div class="stat">
+                <div class="k">Ngày</div>
+                <div class="v" id="statDate">-</div>
+              </div>
+              <div class="stat">
+                <div class="k">Số người đã điểm danh hôm nay</div>
+                <div class="v" id="statTodayCount">0</div>
+              </div>
+              <div class="stat">
+                <div class="k">Tổng mẫu khuôn mặt</div>
+                <div class="v" id="statFaceSamples">0</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2>Camera stream & nhận diện realtime</h2>
+            {% if len(deviceIds) == 0 %}
+              <p class="empty">Chưa có thiết bị ESP32-CAM kết nối.</p>
+            {% end %}
+            <div class="streams">
+              {% for deviceId in deviceIds %}
+                <div class="stream-card">
+                  <div class="stream-head">
+                    <strong>{{ deviceId }}</strong>
+                    <span class="chip" id="status-{{ deviceId }}">Đang chờ...</span>
+                  </div>
+                  <img src="{{ streamBaseUrl + deviceId }}" alt="{{ deviceId }} stream" />
+                  <div class="stream-body">
+                    <ul class="face-list" id="faces-{{ deviceId }}"></ul>
+                  </div>
+                </div>
+              {% end %}
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2>Lịch sử điểm danh (CSV)</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Thời gian</th>
+                    <th>Ngày</th>
+                    <th>Họ tên</th>
+                    <th>Thiết bị</th>
+                    <th>Score</th>
+                    <th>Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody id="attendanceBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2>Lịch sử đăng ký khuôn mặt (CSV)</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Thời gian</th>
+                    <th>Họ tên</th>
+                    <th>Thiết bị</th>
+                    <th>File ảnh</th>
+                    <th>BBox</th>
+                  </tr>
+                </thead>
+                <tbody id="registrationBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <script>
+      function sendButtonData(data) {
+        fetch('/button', {
+          method: 'POST',
+          body: 'data=' + encodeURIComponent(data),
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        });
+      }
+
+      document.getElementById('upButton').addEventListener('click', function () { sendButtonData('Up button clicked'); });
+      document.getElementById('downButton').addEventListener('click', function () { sendButtonData('Down button clicked'); });
+      document.getElementById('leftButton').addEventListener('click', function () { sendButtonData('Left button clicked'); });
+      document.getElementById('rightButton').addEventListener('click', function () { sendButtonData('Right button clicked'); });
+      document.getElementById('extraButton1').addEventListener('click', function () { sendButtonData('Extra button 1 clicked'); });
+      document.getElementById('extraButton2').addEventListener('click', function () { sendButtonData('Extra button 2 clicked'); });
+      document.getElementById('extraButton3').addEventListener('click', function () { sendButtonData('Extra button 3 clicked'); });
+      document.getElementById('extraButton4').addEventListener('click', function () { sendButtonData('Extra button 4 clicked'); });
+
+      function setRegisterStatus(text, mode) {
+        const el = document.getElementById('registerStatus');
+        el.textContent = text;
+        el.className = 'status ' + (mode || '');
+      }
+
+      async function registerFace() {
+        const deviceId = document.getElementById('deviceSelect').value;
+        const name = document.getElementById('personName').value.trim();
+
+        if (!deviceId) {
+          setRegisterStatus('Chưa có thiết bị để đăng ký.', 'warn');
+          return;
+        }
+        if (!name) {
+          setRegisterStatus('Vui lòng nhập tên người cần đăng ký.', 'warn');
+          return;
+        }
+
+        setRegisterStatus('Đang đăng ký khuôn mặt...', '');
+        try {
+          const resp = await fetch('/api/register_face', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, device_id: deviceId }),
+          });
+          const data = await resp.json();
+
+          if (!resp.ok || !data.ok) {
+            setRegisterStatus((data && data.message) || 'Đăng ký thất bại.', 'err');
+            return;
+          }
+
+          setRegisterStatus(data.message || 'Đăng ký thành công.', 'ok');
+          await Promise.all([loadKnownFaces(), loadRegistrationLogs()]);
+        } catch (err) {
+          setRegisterStatus('Lỗi kết nối backend khi đăng ký.', 'err');
+        }
+      }
+      document.getElementById('registerBtn').addEventListener('click', registerFace);
+
+      function renderFaces(deviceId, detections) {
+        const statusEl = document.getElementById('status-' + deviceId);
+        const listEl = document.getElementById('faces-' + deviceId);
+        if (!statusEl || !listEl) return;
+
+        if (!detections || detections.length === 0) {
+          statusEl.textContent = 'Không phát hiện mặt';
+          listEl.innerHTML = '<li>Không có khuôn mặt trong frame.</li>';
+          return;
+        }
+
+        statusEl.textContent = 'Phát hiện: ' + detections.length;
+        listEl.innerHTML = detections
+          .map(function (d, idx) {
+            const check = d.attendance_marked ? ' ✅ đã điểm danh' : '';
+            return '<li>' + (idx + 1) + '. ' + d.name + ' • score: ' + d.score + check + '</li>';
+          })
+          .join('');
+      }
+
+      async function pollFaceStatus() {
+        try {
+          const resp = await fetch('/api/faces', { cache: 'no-store' });
+          if (!resp.ok) return;
+          const data = await resp.json();
+          Object.keys(data).forEach(function (deviceId) {
+            renderFaces(deviceId, data[deviceId]);
+          });
+        } catch (e) {}
+      }
+
+      async function loadKnownFaces() {
+        try {
+          const resp = await fetch('/api/known_faces', { cache: 'no-store' });
+          if (!resp.ok) return;
+          const data = await resp.json();
+          const people = (data && data.people) || {};
+          const keys = Object.keys(people);
+
+          const listEl = document.getElementById('knownFacesList');
+          const emptyEl = document.getElementById('knownFacesEmpty');
+
+          let sampleCount = 0;
+          keys.forEach(function (k) { sampleCount += Number(people[k] || 0); });
+          document.getElementById('statFaceSamples').textContent = sampleCount;
+
+          if (keys.length === 0) {
+            listEl.innerHTML = '';
+            emptyEl.textContent = 'Chưa có khuôn mặt nào được đăng ký.';
+            return;
+          }
+
+          emptyEl.textContent = '';
+          listEl.innerHTML = keys
+            .sort()
+            .map(function (name) {
+              return '<li><strong>' + name + '</strong> (' + people[name] + ' mẫu)</li>';
+            })
+            .join('');
+        } catch (e) {
+          document.getElementById('knownFacesEmpty').textContent = 'Không tải được danh sách khuôn mặt.';
+        }
+      }
+
+      async function loadAttendanceLogs() {
+        try {
+          const resp = await fetch('/api/attendance?limit=100', { cache: 'no-store' });
+          if (!resp.ok) return;
+          const data = await resp.json();
+          const rows = (data && data.rows) || [];
+
+          document.getElementById('statDate').textContent = data.today || '-';
+          document.getElementById('statTodayCount').textContent = data.today_count || 0;
+
+          const tbody = document.getElementById('attendanceBody');
+          if (rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6">Chưa có dữ liệu điểm danh.</td></tr>';
+            return;
+          }
+
+          tbody.innerHTML = rows
+            .map(function (r) {
+              return '<tr>' +
+                '<td>' + (r.timestamp || '') + '</td>' +
+                '<td>' + (r.date || '') + '</td>' +
+                '<td>' + (r.person_name || '') + '</td>' +
+                '<td>' + (r.device_id || '') + '</td>' +
+                '<td>' + (r.score || '') + '</td>' +
+                '<td>' + (r.status || '') + '</td>' +
+                '</tr>';
+            })
+            .join('');
+        } catch (e) {}
+      }
+
+      async function loadRegistrationLogs() {
+        try {
+          const resp = await fetch('/api/registrations?limit=100', { cache: 'no-store' });
+          if (!resp.ok) return;
+          const data = await resp.json();
+          const rows = (data && data.rows) || [];
+
+          const tbody = document.getElementById('registrationBody');
+          if (rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5">Chưa có dữ liệu đăng ký.</td></tr>';
+            return;
+          }
+
+          tbody.innerHTML = rows
+            .map(function (r) {
+              return '<tr>' +
+                '<td>' + (r.timestamp || '') + '</td>' +
+                '<td>' + (r.person_name || '') + '</td>' +
+                '<td>' + (r.device_id || '') + '</td>' +
+                '<td>' + (r.image_file || '') + '</td>' +
+                '<td>' + (r.bbox || '') + '</td>' +
+                '</tr>';
+            })
+            .join('');
+        } catch (e) {}
+      }
+
+      setInterval(pollFaceStatus, 1000);
+      setInterval(loadKnownFaces, 4000);
+      setInterval(loadAttendanceLogs, 4000);
+      setInterval(loadRegistrationLogs, 5000);
+
+      pollFaceStatus();
+      loadKnownFaces();
+      loadAttendanceLogs();
+      loadRegistrationLogs();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ title }}</title>
+    <style>
+      :root {
+        --bg: #070b16;
+        --bg-soft: #0c142b;
+        --panel: #101a34;
+        --panel-soft: #0c142b;
+        --text: #e5e7eb;
+        --muted: #9aa8c7;
+        --primary: #3b82f6;
+        --primary-600: #2563eb;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --border: #24324f;
+        --shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(1000px 550px at 80% -20%, #1a2f65 0%, transparent 55%),
+          radial-gradient(900px 500px at -10% 110%, #132347 0%, transparent 50%),
+          linear-gradient(180deg, var(--bg) 0%, #060a14 100%);
+        min-height: 100vh;
+      }
+
+      .app {
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 22px;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
+
+      .brand h1 { margin: 0; font-size: 24px; }
+      .brand p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+
+      .top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+      .btn {
+        border: none;
+        border-radius: 10px;
+        padding: 10px 12px;
+        color: #fff;
+        background: var(--primary);
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .btn:hover { background: var(--primary-600); }
+      .btn-danger { background: var(--danger); }
+      .btn-warning { background: var(--warning); color: #111827; }
+      .btn-secondary { background: transparent; border: 1px solid var(--border); color: #d7def0; }
+
+      .link {
+        color: #bfdbfe;
+        text-decoration: none;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 12px;
+        background: rgba(11, 19, 40, 0.7);
+      }
+      .link:hover { border-color: #42639a; }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 360px minmax(0, 1fr);
+        gap: 14px;
+      }
+
+      .panel {
+        background: linear-gradient(180deg, var(--panel) 0%, var(--panel-soft) 100%);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 14px;
+        box-shadow: var(--shadow);
+      }
+
+      h2 { margin: 0 0 12px; font-size: 16px; }
+
+      .label {
+        display: block;
+        margin: 8px 0 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      input, select {
+        width: 100%;
+        background: #0b1328;
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 12px;
+      }
+
+      .btn-row {
+        display: grid;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .status {
+        margin-top: 10px;
+        font-size: 13px;
+        color: var(--muted);
+        min-height: 20px;
+      }
+      .status.ok { color: var(--success); }
+      .status.err { color: #fecaca; }
+
+      .main-col { display: grid; gap: 14px; }
+
+      .controls-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin: 4px 0 12px;
+      }
+      .hint { color: var(--muted); font-size: 13px; margin-left: auto; }
+
+      .streams {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 12px;
+      }
+
+      .stream-card {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        background: #0a1226;
+      }
+      .stream-head { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+      .stream-card img { width: 100%; display: block; background: #020617; }
+
+      .table-wrap {
+        overflow: auto;
+        max-height: 520px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+      }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { border-bottom: 1px solid #1f2a44; padding: 9px 8px; text-align: left; }
+      thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #0f1a35;
+      }
+
+      @media (max-width: 1160px) {
+        .layout { grid-template-columns: 1fr; }
+      }
+
+      @media (max-width: 700px) {
+        .app { padding: 14px; }
+        .hint { margin-left: 0; width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <h1>Quản trị đăng ký khuôn mặt</h1>
+          <p>Xin chào {{ admin_user }} • Server: {{ ip }}:3000</p>
+        </div>
+        <div class="top-actions">
+          <a class="link" href="/attendance">Màn hình điểm danh</a>
+          <form method="post" action="/admin/logout" style="margin: 0">
+            <button class="btn btn-secondary" type="submit">Đăng xuất</button>
+          </form>
+        </div>
+      </header>
+
+      <main class="layout">
+        <aside class="panel">
+          <h2>Đăng ký khuôn mặt mới</h2>
+
+          <label class="label" for="deviceSelect">Thiết bị nguồn</label>
+          <select id="deviceSelect">
+            {% for deviceId in deviceIds %}
+              <option value="{{ deviceId }}">{{ deviceId }}</option>
+            {% end %}
+          </select>
+
+          <label class="label" for="personId">Mã nhân sự (Person ID)</label>
+          <input id="personId" type="text" placeholder="Ví dụ: NV001" />
+
+          <label class="label" for="personName">Họ tên (hỗ trợ tiếng Việt)</label>
+          <input id="personName" type="text" placeholder="Ví dụ: Nguyễn Văn A" />
+
+          <div class="btn-row">
+            <button class="btn" id="registerBtn">Lưu khuôn mặt</button>
+            <button class="btn btn-warning" id="deleteAllRegBtn">Xóa toàn bộ đăng ký</button>
+            <button class="btn btn-danger" id="deleteAllAttBtn">Xóa toàn bộ điểm danh</button>
+          </div>
+
+          <div id="adminStatus" class="status">Sẵn sàng thao tác.</div>
+        </aside>
+
+        <section class="main-col">
+          <section class="panel">
+            <h2>Camera xem trước khi đăng ký</h2>
+            <div class="controls-row">
+              <button class="btn" id="rotateLeftBtn">Xoay trái 90°</button>
+              <button class="btn" id="rotateRightBtn">Xoay phải 90°</button>
+              <button class="btn btn-secondary" id="resetRotateBtn">Góc mặc định</button>
+              <span class="hint" id="rotationState">Góc camera: 0°</span>
+            </div>
+
+            <div class="streams">
+              {% for deviceId in deviceIds %}
+                <article class="stream-card">
+                  <div class="stream-head"><strong>{{ deviceId }}</strong></div>
+                  <img src="{{ streamBaseUrl + deviceId }}" alt="{{ deviceId }} stream" />
+                </article>
+              {% end %}
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2>Danh sách đăng ký khuôn mặt</h2>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Thời gian</th>
+                    <th>Person ID</th>
+                    <th>Họ tên</th>
+                    <th>Thiết bị</th>
+                    <th>File ảnh</th>
+                    <th>Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="registrationBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      function setStatus(text, mode) {
+        const el = document.getElementById('adminStatus');
+        el.textContent = text;
+        el.className = 'status ' + (mode || '');
+      }
+
+      async function registerFace() {
+        const deviceId = document.getElementById('deviceSelect').value;
+        const personId = document.getElementById('personId').value.trim();
+        const personName = document.getElementById('personName').value.trim();
+        if (!deviceId || !personId || !personName) {
+          setStatus('Vui lòng nhập Person ID, họ tên và chọn thiết bị.', 'err');
+          return;
+        }
+
+        setStatus('Đang đăng ký khuôn mặt...');
+        try {
+          const resp = await fetch('/api/admin/register_face', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_id: deviceId, person_id: personId, person_name: personName })
+          });
+          const data = await resp.json();
+          if (!resp.ok || !data.ok) {
+            setStatus((data && data.message) || 'Đăng ký thất bại.', 'err');
+            return;
+          }
+          setStatus(data.message || 'Đăng ký thành công.', 'ok');
+          document.getElementById('personId').value = '';
+          document.getElementById('personName').value = '';
+          await loadRegistrations();
+        } catch (e) {
+          setStatus('Lỗi kết nối máy chủ.', 'err');
+        }
+      }
+
+      async function deleteRegistration(imageFile) {
+        if (!confirm('Xóa bản ghi này?')) return;
+        try {
+          const resp = await fetch('/api/admin/delete_registration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image_file: imageFile })
+          });
+          const data = await resp.json();
+          if (!resp.ok || !data.ok) {
+            setStatus((data && data.message) || 'Xóa thất bại.', 'err');
+            return;
+          }
+          setStatus(data.message || 'Đã xóa.', 'ok');
+          await loadRegistrations();
+        } catch (e) {
+          setStatus('Lỗi kết nối máy chủ.', 'err');
+        }
+      }
+
+      async function deleteAllRegistrations() {
+        if (!confirm('Xóa toàn bộ dữ liệu đăng ký khuôn mặt?')) return;
+        try {
+          const resp = await fetch('/api/admin/delete_all_registrations', { method: 'POST' });
+          const data = await resp.json();
+          if (!resp.ok || !data.ok) {
+            setStatus((data && data.message) || 'Không thể xóa.', 'err');
+            return;
+          }
+          setStatus(data.message || 'Đã xóa toàn bộ đăng ký.', 'ok');
+          await loadRegistrations();
+        } catch (e) {
+          setStatus('Lỗi kết nối máy chủ.', 'err');
+        }
+      }
+
+      async function deleteAllAttendance() {
+        if (!confirm('Xóa toàn bộ dữ liệu điểm danh?')) return;
+        try {
+          const resp = await fetch('/api/admin/delete_all_attendance', { method: 'POST' });
+          const data = await resp.json();
+          if (!resp.ok || !data.ok) {
+            setStatus((data && data.message) || 'Không thể xóa.', 'err');
+            return;
+          }
+          setStatus(data.message || 'Đã xóa toàn bộ điểm danh.', 'ok');
+        } catch (e) {
+          setStatus('Lỗi kết nối máy chủ.', 'err');
+        }
+      }
+
+      async function loadRegistrations() {
+        try {
+          const resp = await fetch('/api/admin/known_faces', { cache: 'no-store' });
+          if (!resp.ok) {
+            if (resp.status === 403) {
+              window.location.href = '/admin/login';
+            }
+            return;
+          }
+
+          const data = await resp.json();
+          const rows = data.rows || [];
+          const tbody = document.getElementById('registrationBody');
+
+          if (rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6">Chưa có dữ liệu đăng ký.</td></tr>';
+            return;
+          }
+
+          tbody.innerHTML = rows.map(function (r) {
+            const imageFile = r.image_file || '';
+            return '<tr>' +
+              '<td>' + (r.timestamp || '') + '</td>' +
+              '<td>' + (r.person_id || '') + '</td>' +
+              '<td>' + (r.person_name || '') + '</td>' +
+              '<td>' + (r.device_id || '') + '</td>' +
+              '<td>' + imageFile + '</td>' +
+              '<td><button class="btn btn-danger" style="padding:6px 8px" onclick="deleteRegistration(' + JSON.stringify(imageFile) + ')">Xóa</button></td>' +
+            '</tr>';
+          }).join('');
+        } catch (e) {}
+      }
+
+      document.getElementById('registerBtn').addEventListener('click', registerFace);
+      document.getElementById('deleteAllRegBtn').addEventListener('click', deleteAllRegistrations);
+      document.getElementById('deleteAllAttBtn').addEventListener('click', deleteAllAttendance);
+
+      let camRotation = 0;
+      let currentMode = 'CHECK_IN';
+
+      function applyCamRotation() {
+        const normalized = ((camRotation % 360) + 360) % 360;
+        document.getElementById('rotationState').textContent = 'Góc camera: ' + normalized + '°';
+      }
+
+      async function loadConfig() {
+        try {
+          const resp = await fetch('/api/attendance/config', { cache: 'no-store' });
+          if (!resp.ok) return;
+          const data = await resp.json();
+          if (typeof data.camera_rotation_deg === 'number') {
+            camRotation = data.camera_rotation_deg;
+            applyCamRotation();
+          }
+          if (typeof data.mode === 'string' && data.mode) {
+            currentMode = data.mode;
+          }
+        } catch (e) {}
+      }
+
+      async function syncRotationToBackend() {
+        try {
+          await fetch('/api/attendance/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: currentMode, camera_rotation_deg: ((camRotation % 360) + 360) % 360 })
+          });
+        } catch (e) {}
+      }
+
+      document.getElementById('rotateLeftBtn').addEventListener('click', function () {
+        camRotation -= 90;
+        applyCamRotation();
+        syncRotationToBackend();
+      });
+
+      document.getElementById('rotateRightBtn').addEventListener('click', function () {
+        camRotation += 90;
+        applyCamRotation();
+        syncRotationToBackend();
+      });
+
+      document.getElementById('resetRotateBtn').addEventListener('click', function () {
+        camRotation = 0;
+        applyCamRotation();
+        syncRotationToBackend();
+      });
+
+      applyCamRotation();
+      loadConfig();
+      loadRegistrations();
+      setInterval(loadRegistrations, 5000);
+    </script>
+  </body>
+</html>

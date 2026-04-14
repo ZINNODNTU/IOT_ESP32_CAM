@@ -1,0 +1,5 @@
+﻿timestamp,date,person_id,person_name,device_id,score,status,mode
+2026-04-14 20:19:18,2026-04-14,1,Nhân,esp32cam_1,0.887,OK,CHECK_OUT
+2026-04-14 20:19:33,2026-04-14,1,Nhân,esp32cam_1,0.881,OK,CHECK_IN
+2026-04-14 20:22:16,2026-04-14,2,ying,esp32cam_1,0.918,OK,CHECK_OUT
+2026-04-14 20:22:22,2026-04-14,2,ying,esp32cam_1,0.879,OK,CHECK_IN
