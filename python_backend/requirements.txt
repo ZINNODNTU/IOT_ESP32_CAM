@@ -1,0 +1,6 @@
+tornado
+numpy
+imutils
+opencv-python
+websockets
+

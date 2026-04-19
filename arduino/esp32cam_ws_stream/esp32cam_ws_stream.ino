@@ -11,10 +11,10 @@ const char* ssid = "1";
 const char* password = "14022021i";
 
 // ⚠️ SỬA IP SERVER (máy bạn)
-const char* ws_url = "ws://192.168.5.183:3000/ws";
+const char* ws_url = "ws://dntuiot.duckdns.org:3000/ws";
 
 // ⚠️ ID CAMERA
-const char* DEVICE_ID = "esp32cam_1";
+const char* DEVICE_ID = "esp32cam_01";
 
 // ================= CAMERA PIN (AI Thinker) =================
 #define PWDN_GPIO_NUM     32
