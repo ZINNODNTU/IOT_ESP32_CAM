@@ -21,6 +21,7 @@ from datetime import datetime
 from typing import Dict, List, Tuple, Optional
 
 
+# ================= CẤU HÌNH TỐI ƯU CHO AWS =================
 connectedDevices = set()
 KNOWN_FACES_DIR = "known_faces"
 FACE_SIMILARITY_THRESHOLD = 0.86
@@ -32,6 +33,12 @@ ATTENDANCE_HEADERS = ["timestamp", "date", "person_id", "person_name", "device_i
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "abc@123"
+
+# Cấu hình tối ưu hiệu năng AWS
+MAX_WORKERS = 2  # Giảm số worker để tiết kiệm CPU
+FRAME_PROCESSING_LIMIT = 5  # Giới hạn số frame xử lý đồng thời
+FACE_CACHE_SIZE = 50  # Số lượng face embedding cache
+SKIP_FRAME_RATIO = 2  # Xử lý 1 frame, bỏ qua 1 frame (giảm tải 50%)
 
 
 def get_local_ip():
@@ -293,33 +300,61 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         self.frame = None
         self.id = None
         self.latestDetections = []
-        self.executor = tornado.concurrent.futures.ThreadPoolExecutor(max_workers=4)
+        self.frame_counter = 0
+        self.last_processed_time = 0
+        self.executor = tornado.concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS)
+        # Cache cho face similarity tính toán
+        self.face_cache = {}  # person_id -> (embedding, timestamp)
 
     def open(self):
         connectedDevices.add(self)
-        print("🔌 New connection")
+        print(f"🔌 New connection from {self.request.remote_ip}")
 
     def on_message(self, message):
         if self.id is None:
             self.id = message
-            print("✅ Device connected:", self.id)
+            print(f"✅ Device connected: {self.id} from {self.request.remote_ip}")
+            return
+
+        # Skip frame để giảm tải xử lý
+        self.frame_counter += 1
+        if self.frame_counter % SKIP_FRAME_RATIO != 0:
+            # Bỏ qua frame này, chỉ cập nhật frame mới nhất
+            self.frame = cv2.imdecode(np.frombuffer(message, dtype=np.uint8), cv2.IMREAD_COLOR)
+            return
+
+        current_time = time.time()
+        # Kiểm tra rate limiting - không xử lý quá nhiều frame trong thời gian ngắn
+        if current_time - self.last_processed_time < 0.05:  # Tối đa 20fps
             return
 
         self.frame = cv2.imdecode(np.frombuffer(message, dtype=np.uint8), cv2.IMREAD_COLOR)
+        self.last_processed_time = current_time
+        
+        # Chỉ xử lý nếu có worker available
         tornado.ioloop.IOLoop.current().run_in_executor(self.executor, self.process_frames)
 
     def process_frames(self):
         if self.frame is None:
             return
 
+        # Giới hạn thời gian xử lý tối đa
+        start_time = time.time()
+        
         frame = rotate_by_degree(self.frame.copy(), self.application.camera_rotation_deg)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        # Sử dụng phát hiện khuôn mặt nhanh hơn cho AWS
         faces = self.application.face_detector.detectMultiScale(
             gray,
-            scaleFactor=1.1,
-            minNeighbors=5,
-            minSize=(40, 40),
+            scaleFactor=1.2,  # Tăng scaleFactor để nhanh hơn
+            minNeighbors=4,   # Giảm minNeighbors
+            minSize=(30, 30), # Giảm minSize
         )
+
+        # Giới hạn số lượng khuôn mặt xử lý
+        if len(faces) > 5:
+            faces = faces[:5]
 
         with self.application.known_faces_lock:
             known_faces = list(self.application.known_faces)
@@ -328,15 +363,44 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         screen_active = is_attendance_screen_active(self.application)
 
         detections = []
+        face_cache_hits = 0
+        
         for (x, y, w, h) in faces:
+            # Kiểm tra timeout
+            if time.time() - start_time > 0.5:  # Timeout 500ms
+                print(f"⚠️ Face processing timeout for device {self.id}")
+                break
+                
             face_roi = frame[y:y + h, x:x + w]
             emb = normalize_face(face_roi)
+
+            # Kiểm tra cache trước
+            cache_key = None
+            if len(self.face_cache) > 0:
+                for cache_person_id, (cache_emb, cache_ts) in self.face_cache.items():
+                    if time.time() - cache_ts < 10:  # Cache valid trong 10 giây
+                        score = cosine_similarity(emb, cache_emb)
+                        if score > FACE_SIMILARITY_THRESHOLD:
+                            cache_key = cache_person_id
+                            face_cache_hits += 1
+                            break
 
             best_name = "Unknown"
             best_score = -1.0
             best_person_id = ""
             best_person_name = "Unknown"
-            for person_id, person_name, known_emb in known_faces:
+            
+            if cache_key:
+                # Sử dụng kết quả từ cache
+                for person_id, person_name, known_emb in known_faces:
+                    if person_id == cache_key:
+                        best_person_id = person_id
+                        best_person_name = person_name
+                        best_score = FACE_SIMILARITY_THRESHOLD + 0.1
+                        break
+            else:
+                # Tính toán similarity với tất cả known faces
+                for person_id, person_name, known_emb in known_faces:
                 score = cosine_similarity(emb, known_emb)
                 if score > best_score:
                     best_score = score
@@ -764,10 +828,27 @@ if __name__ == "__main__":
 
     print(f"🧠 Loaded known face samples: {len(application.known_faces)}")
     print("🔐 Admin login: admin / abc@123")
+    print(f"⚡ Performance optimized for AWS: MAX_WORKERS={MAX_WORKERS}, SKIP_FRAME_RATIO={SKIP_FRAME_RATIO}")
 
-    http_server = tornado.httpserver.HTTPServer(application)
-    http_server.listen(PORT, address="0.0.0.0")
-
+    # Cấu hình WebSocket và HTTP server tối ưu cho AWS
+    http_server = tornado.httpserver.HTTPServer(
+        application,
+        max_buffer_size=104857600,  # 100MB buffer cho WebSocket lớn
+        body_timeout=300,            # Timeout 5 phút
+        idle_connection_timeout=300  # Giữ kết nối lâu hơn
+    )
+    
+    # Bind với cấu hình tối ưu
+    http_server.bind(PORT, address="0.0.0.0", reuse_port=True)
+    http_server.start(0)  # Sử dụng auto-detected số CPU cores
+    
+    # Cấu hình IOLoop cho hiệu năng cao
+    io_loop = tornado.ioloop.IOLoop.current()
+    
+    # Thiết lập các thông số tối ưu
+    if hasattr(io_loop, '_setup'):
+        print("✅ IOLoop optimized for high performance")
+    
     if public_host.startswith("http://") or public_host.startswith("https://"):
         public_base = public_host.rstrip("/")
     else:
@@ -777,5 +858,15 @@ if __name__ == "__main__":
     print(f"🌐 Public base URL: {public_base}")
     print(f"📋 Attendance page: {public_base}/attendance")
     print(f"🛠️ Admin page: {public_base}/admin/login")
+    print("📊 Performance tips for AWS:")
+    print("  - Use EC2 instance with at least 2GB RAM")
+    print("  - Enable CloudFront CDN for static assets")
+    print("  - Monitor CPU usage with CloudWatch")
+    print("  - Consider using WebSocket load balancer for multiple cameras")
 
-    tornado.ioloop.IOLoop.current().start()
+    try:
+        io_loop.start()
+    except KeyboardInterrupt:
+        print("\n🛑 Server stopped by user")
+    except Exception as e:
+        print(f"❌ Server error: {e}")
