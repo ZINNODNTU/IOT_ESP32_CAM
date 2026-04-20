@@ -6,6 +6,7 @@ import tornado.web
 import tornado.gen
 
 import socket
+import urllib.request
 import numpy as np
 import imutils
 import cv2
@@ -46,15 +47,39 @@ def get_local_ip():
 
 
 
+def fetch_public_ip(timeout: float = 2.0) -> str:
+    """Lấy public IP ưu tiên từ AWS metadata, fallback sang dịch vụ public IP."""
+    sources = [
+        "http://169.254.169.254/latest/meta-data/public-ipv4",
+        "https://checkip.amazonaws.com",
+        "https://api.ipify.org",
+        "https://ifconfig.me/ip",
+    ]
+
+    for url in sources:
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as response:
+                value = response.read().decode("utf-8").strip()
+                if value:
+                    return value
+        except Exception:
+            continue
+
+    raise RuntimeError(
+        "Không lấy được public IP. Hãy cấu hình PUBLIC_BASE_URL, PUBLIC_HOST, AWS_PUBLIC_IP hoặc EC2_PUBLIC_IP."
+    )
+
+
+
 def get_public_host() -> str:
-    """Ưu tiên domain/IP public cấu hình sẵn cho môi trường AWS."""
+    """Chỉ trả về public URL hoặc public IP, không fallback sang private/local IP."""
     for env_name in ("PUBLIC_BASE_URL", "PUBLIC_HOST", "AWS_PUBLIC_IP", "EC2_PUBLIC_IP"):
         value = (os.getenv(env_name) or "").strip()
         if value:
             if env_name == "PUBLIC_BASE_URL":
                 return value.rstrip("/")
             return value
-    return get_local_ip()
+    return fetch_public_ip()
 
 
 

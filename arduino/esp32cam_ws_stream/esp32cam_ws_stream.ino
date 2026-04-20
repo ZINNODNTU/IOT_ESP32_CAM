@@ -11,7 +11,7 @@ const char* ssid = "1";
 const char* password = "14022021i";
 
 // ⚠️ SỬA IP SERVER (máy bạn)
-const char* ws_url = "ws://dntuiot.duckdns.org:3000/ws";
+const char* ws_url = "ws://13.239.29.180:3000/ws";
 
 // ⚠️ ID CAMERA
 const char* DEVICE_ID = "esp32cam_01";
