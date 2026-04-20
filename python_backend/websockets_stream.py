@@ -401,11 +401,11 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             else:
                 # Tính toán similarity với tất cả known faces
                 for person_id, person_name, known_emb in known_faces:
-                score = cosine_similarity(emb, known_emb)
-                if score > best_score:
-                    best_score = score
-                    best_person_id = person_id
-                    best_person_name = person_name
+                    score = cosine_similarity(emb, known_emb)
+                    if score > best_score:
+                        best_score = score
+                        best_person_id = person_id
+                        best_person_name = person_name
 
             if best_score < FACE_SIMILARITY_THRESHOLD:
                 best_person_id = ""
