@@ -6,24 +6,21 @@
 
 using namespace websockets;
 
-// ================= WIFI =================
-// ⚠️ CẤU HÌNH WIFI CHO MÔI TRƯỜNG SẢN PHẨM
-const char* ssid = "1";          // Thay bằng SSID WiFi thực tế
-const char* password = "14022021i";   // Thay bằng mật khẩu WiFi
+// ================= CẤU HÌNH WIFI =================
+const char* ssid = "1";               // Thay bằng SSID WiFi thực tế
+const char* password = "14022021i";    // Thay bằng mật khẩu WiFi
 
-// ⚠️ SỬA IP SERVER AWS (Public IP hoặc Domain)
-// Ví dụ: ws://your-ec2-public-ip:3000/ws hoặc wss://your-domain.com/ws
+// ================= CẤU HÌNH SERVER =================
+// CHO LOCAL TESTING (PC Windows):
+// const char* ws_url = "ws://192.168.5.183:3000/ws";
+
+// CHO AWS SERVER:
 const char* ws_url = "ws://13.239.29.180:3000/ws";
 
-// ⚠️ ID CAMERA - Đặt tên duy nhất cho mỗi camera
-const char* DEVICE_ID = "esp32cam_01";
+// ================= CẤU HÌNH CAMERA =================
+#define DEVICE_ID "esp32cam_01"
 
-// Hàm utility
-int max(int a, int b) {
-  return (a > b) ? a : b;
-}
-
-// ================= CAMERA PIN (AI Thinker) =================
+// Camera pin configuration (AI Thinker)
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
 #define XCLK_GPIO_NUM      0
@@ -42,12 +39,33 @@ int max(int a, int b) {
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
-WebsocketsClient client;
+// ================= CẤU HÌNH TỐI ƯU CHO MẠNG ỔN ĐỊNH =================
+#define MAX_FRAME_SIZE 15000           // Giảm kích thước frame (15KB)
+#define TARGET_FPS 5                   // Giảm FPS để ổn định mạng (từ 8 xuống 5)
+#define RECONNECT_DELAY_MS 5000       // Thời gian chờ reconnect
+#define MAX_RETRY_COUNT 5              // Số lần retry tối đa
+#define RETRY_BACKOFF_MS 1000          // Exponential backoff
+#define WATCHDOG_TIMEOUT_MS 30000      // Watchdog timeout 30s
 
-// ================= CALLBACK =================
-void onMessageCallback(WebsocketsMessage message) {
-  Serial.print("📩 Server: ");
-  Serial.println(message.data());
+// ================= BIẾN TOÀN CỤC =================
+WebsocketsClient client;
+unsigned long lastConnectionAttempt = 0;
+int retryCount = 0;
+unsigned long lastWatchdogCheck = 0;
+bool cameraInitialized = false;
+
+// ================= UTILITY FUNCTIONS =================
+int max(int a, int b) {
+  return (a > b) ? a : b;
+}
+
+void printSystemInfo() {
+  Serial.println("\n=== SYSTEM INFO ===");
+  Serial.printf("Free Heap: %d bytes\n", ESP.getFreeHeap());
+  Serial.printf("PSRAM: %s\n", psramFound() ? "Yes" : "No");
+  Serial.printf("Chip Revision: %d\n", ESP.getChipRevision());
+  Serial.printf("CPU Freq: %d MHz\n", ESP.getCpuFreqMHz());
+  Serial.println("===================\n");
 }
 
 // ================= CAMERA INIT =================
@@ -79,162 +97,225 @@ bool initCamera() {
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
 
+  // GIẢM TẢI ĐỂ TRÁNH FB-OVF VÀ ỔN ĐỊNH MẠNG
   if (psramFound()) {
-    config.frame_size = FRAMESIZE_VGA;
-    config.jpeg_quality = 12;
-    config.fb_count = 2;
+    config.frame_size = FRAMESIZE_QVGA;    // Giảm từ VGA xuống QVGA (320x240)
+    config.jpeg_quality = 18;             // Giảm chất lượng (từ 12 lên 18)
+    config.fb_count = 1;                   // Giảm từ 2 xuống 1 frame buffer
   } else {
-    config.frame_size = FRAMESIZE_QVGA;
-    config.jpeg_quality = 15;
+    config.frame_size = FRAMESIZE_QQVGA;   // Rất nhỏ (160x120)
+    config.jpeg_quality = 20;              // Chất lượng thấp
     config.fb_count = 1;
   }
 
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
-    Serial.println("❌ Camera init failed");
+    Serial.printf("Camera init failed: 0x%x\n", err);
     return false;
   }
 
-  Serial.println("✅ Camera OK");
+  Serial.println("Camera initialized successfully");
+  cameraInitialized = true;
   return true;
 }
 
-// ================= WIFI + WS =================
+// ================= WIFI CONNECTION =================
 bool connectWiFi() {
+  Serial.print("Connecting to WiFi");
+  
   WiFi.begin(ssid, password);
-
-  Serial.print("📶 Connecting WiFi");
+  unsigned long startTime = millis();
+  const unsigned long timeout = 20000; // 20 seconds timeout
+  
   while (WiFi.status() != WL_CONNECTED) {
+    if (millis() - startTime > timeout) {
+      Serial.println("\nWiFi connection timeout");
+      return false;
+    }
     delay(500);
     Serial.print(".");
   }
-
-  Serial.println("\n✅ WiFi connected");
-  Serial.print("IP: ");
+  
+  Serial.println("\nWiFi connected");
+  Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
-
+  Serial.print("RSSI: ");
+  Serial.println(WiFi.RSSI());
+  
   return true;
 }
 
+// ================= WEBSOCKET CONNECTION =================
 bool connectWebSocket() {
-  client.onMessage(onMessageCallback);
-
-  Serial.println("🔌 Connecting WebSocket...");
+  Serial.println("Connecting to WebSocket...");
+  
+  // Set timeout cho WebSocket
+  client.setConnectionTimeout(10, 5000); // 10s connection timeout
+  
   bool connected = client.connect(ws_url);
-
-  if (!connected) {
-    Serial.println("❌ WS connect failed");
+  
+  if (connected) {
+    Serial.println("WebSocket connected");
+    
+    // Gửi device ID
+    client.send(DEVICE_ID);
+    
+    // Reset retry count khi kết nối thành công
+    retryCount = 0;
+    return true;
+  } else {
+    Serial.println("WebSocket connection failed");
     return false;
   }
+}
 
-  Serial.println("✅ WebSocket Connected");
-
-  // gửi ID
-  client.send(DEVICE_ID);
-
-  return true;
+// ================= WATCHDOG =================
+void checkWatchdog() {
+  unsigned long currentTime = millis();
+  
+  if (currentTime - lastWatchdogCheck > WATCHDOG_TIMEOUT_MS) {
+    Serial.println("Watchdog timeout - Restarting ESP32");
+    ESP.restart();
+  }
+  
+  // Update watchdog nếu có activity
+  if (client.available() || WiFi.status() == WL_CONNECTED) {
+    lastWatchdogCheck = currentTime;
+  }
 }
 
 // ================= SETUP =================
 void setup() {
+  // Disable brownout detector
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
-
+  
   Serial.begin(115200);
   delay(1000);
-
+  
+  Serial.println("\n=== ESP32-CAM STABLE NETWORK OPTIMIZATION ===");
+  printSystemInfo();
+  
+  // Khởi tạo camera
   if (!initCamera()) {
-    return;
-  }
-
-  connectWiFi();
-
-  if (!connectWebSocket()) {
-    Serial.println("Retry in 5s...");
+    Serial.println("Camera initialization failed. Restarting in 5s...");
     delay(5000);
     ESP.restart();
   }
+  
+  // Kết nối WiFi với retry
+  int wifiRetries = 0;
+  while (!connectWiFi() && wifiRetries < 3) {
+    wifiRetries++;
+    Serial.printf("WiFi retry %d/3\n", wifiRetries);
+    delay(2000);
+  }
+  
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Failed to connect to WiFi. Restarting...");
+    ESP.restart();
+  }
+  
+  // Kết nối WebSocket
+  if (!connectWebSocket()) {
+    Serial.println("Initial WebSocket connection failed");
+  }
+  
+  lastWatchdogCheck = millis();
+  lastConnectionAttempt = millis();
 }
 
-// ================= CẤU HÌNH TỐI ƯU CHO AWS =================
-#define MAX_FRAME_SIZE 20000  // Giảm kích thước frame tối đa (20KB)
-#define TARGET_FPS 8          // Giảm FPS để giảm tải mạng (từ 10 xuống 8)
-#define RECONNECT_DELAY 5000  // Thời gian chờ reconnect
-#define SEND_TIMEOUT_MS 3000  // Giảm timeout khi gửi frame (5s -> 3s)
-#define DYNAMIC_QUALITY       // Kích hoạt chất lượng động
-#define MIN_JPEG_QUALITY 8    // Chất lượng JPEG tối thiểu
-#define MAX_JPEG_QUALITY 15   // Chất lượng JPEG tối đa
-
-// ================= LOOP TỐI ƯU =================
+// ================= MAIN LOOP - TỐI ƯU CHO MẠNG ỔN ĐỊNH =================
 void loop() {
-  static unsigned long lastFrameTime = 0;
-  static unsigned long framesSent = 0;
-  static int currentJpegQuality = 12;  // Chất lượng JPEG hiện tại
-  
-  // Kiểm tra kết nối WebSocket
-  if (!client.available()) {
-    Serial.println("⚠️ WebSocket disconnected, reconnecting...");
-    if (connectWebSocket()) {
-      Serial.println("✅ WebSocket reconnected");
-    } else {
-      Serial.println("❌ Reconnect failed, waiting...");
-      delay(RECONNECT_DELAY);
-    }
-    return;
-  }
-
-  // Kiểm tra FPS - chỉ gửi frame khi đủ thời gian
   unsigned long currentTime = millis();
-  if (currentTime - lastFrameTime < (1000 / TARGET_FPS)) {
-    client.poll();  // Vẫn poll để giữ kết nối
-    delay(5);       // Giảm delay từ 10ms xuống 5ms
+  
+  // Kiểm tra watchdog
+  checkWatchdog();
+  
+  // Kiểm tra và reconnect WebSocket nếu cần
+  if (!client.available()) {
+    if (currentTime - lastConnectionAttempt > RECONNECT_DELAY_MS) {
+      Serial.println("WebSocket disconnected. Attempting to reconnect...");
+      
+      if (connectWebSocket()) {
+        Serial.println("WebSocket reconnected successfully");
+        lastConnectionAttempt = currentTime;
+      } else {
+        retryCount++;
+        Serial.printf("Reconnect failed (attempt %d/%d)\n", retryCount, MAX_RETRY_COUNT);
+        
+        // Exponential backoff
+        unsigned long backoffTime = RETRY_BACKOFF_MS * (1 << min(retryCount, 5));
+        backoffTime = min(backoffTime, 30000UL); // Max 30 seconds
+        
+        if (retryCount >= MAX_RETRY_COUNT) {
+          Serial.println("Max retries reached. Restarting ESP32...");
+          delay(2000);
+          ESP.restart();
+        }
+        
+        lastConnectionAttempt = currentTime + backoffTime;
+        return;
+      }
+    }
+    
+    // Poll để giữ kết nối
+    client.poll();
+    delay(10);
     return;
   }
-
-  // Chụp ảnh
+  
+  // Kiểm tra FPS - chỉ gửi frame khi đủ thời gian
+  static unsigned long lastFrameTime = 0;
+  if (currentTime - lastFrameTime < (1000 / TARGET_FPS)) {
+    client.poll();
+    delay(5);
+    return;
+  }
+  
+  // Chụp ảnh với error handling
   camera_fb_t *fb = esp_camera_fb_get();
   if (!fb) {
-    Serial.println("❌ Capture failed");
-    delay(50);      // Giảm delay từ 100ms xuống 50ms
-    esp_camera_fb_return(fb);
+    Serial.println("Camera capture failed");
+    delay(50);
     return;
   }
-
-  // Kiểm tra kích thước frame - nếu quá lớn có thể bỏ qua hoặc giảm chất lượng
+  
+  // Kiểm tra kích thước frame
   if (fb->len > MAX_FRAME_SIZE) {
-    Serial.printf("⚠️ Frame too large: %d bytes, skipping\n", fb->len);
+    Serial.printf("Frame too large: %d bytes (max: %d). Skipping.\n", fb->len, MAX_FRAME_SIZE);
     esp_camera_fb_return(fb);
     delay(10);
     return;
   }
-
-  // Gửi ảnh với timeout
+  
+  // Gửi frame với timeout
   unsigned long sendStart = millis();
   bool sent = client.sendBinary((const char*)fb->buf, fb->len);
+  unsigned long sendTime = millis() - sendStart;
   
   if (!sent) {
-    Serial.println("❌ Send failed, connection may be broken");
+    Serial.println("Failed to send frame. Connection may be broken.");
     esp_camera_fb_return(fb);
     delay(100);
     return;
   }
-
-  // Tính thời gian gửi
-  unsigned long sendTime = millis() - sendStart;
   
+  // Log mỗi 10 frame để giảm spam serial
+  static unsigned long framesSent = 0;
   framesSent++;
-  if (framesSent % 20 == 0) {
-    Serial.printf("📸 Frame %d sent (%d bytes, %lu ms)\n",
-                  framesSent, fb->len, sendTime);
+  if (framesSent % 10 == 0) {
+    Serial.printf("Frame %d sent (%d bytes, %lu ms)\n", framesSent, fb->len, sendTime);
   }
-
+  
+  // Giải phóng frame buffer
   esp_camera_fb_return(fb);
-
+  
   // Poll để xử lý message từ server
   client.poll();
-
+  
   // Cập nhật thời gian frame cuối
   lastFrameTime = currentTime;
-
+  
   // Điều chỉnh delay động dựa trên thời gian gửi
   int dynamicDelay = max(50, (1000 / TARGET_FPS) - (int)sendTime);
   delay(dynamicDelay);

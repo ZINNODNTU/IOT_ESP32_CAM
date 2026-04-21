@@ -17,30 +17,49 @@ import time
 import threading
 import csv
 import unicodedata
+import platform
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
 
+# Import production configuration
+try:
+    from config import get_config
+    CONFIG = get_config("production")
+except ImportError:
+    # Fallback configuration if config.py doesn't exist
+    CONFIG = {
+        "websocket": {"port": 3000, "address": "0.0.0.0"},
+        "face_recognition": {"similarity_threshold": 0.86, "skip_frame_ratio": 3},
+        "performance": {"max_workers": 4, "skip_frame_ratio": 3},
+        "paths": {
+            "known_faces_dir": "known_faces",
+            "attendance_log": "attendance_log.csv",
+            "face_registrations": "face_registrations.csv",
+            "templates_dir": "templates"
+        },
+        "admin": {"username": "admin", "password": "abc@123"}
+    }
 
-# ================= CẤU HÌNH TỐI ƯU CHO AWS =================
+# ================= CẤU HÌNH TỪ CONFIG =================
 connectedDevices = set()
-KNOWN_FACES_DIR = "known_faces"
-FACE_SIMILARITY_THRESHOLD = 0.86
-REGISTRATION_CSV = "face_registrations.csv"
-ATTENDANCE_CSV = "attendance_log.csv"
+KNOWN_FACES_DIR = CONFIG["paths"]["known_faces_dir"]
+FACE_SIMILARITY_THRESHOLD = CONFIG["face_recognition"]["similarity_threshold"]
+REGISTRATION_CSV = CONFIG["paths"]["face_registrations"]
+ATTENDANCE_CSV = CONFIG["paths"]["attendance_log"]
 
 REGISTRATION_HEADERS = ["timestamp", "person_id", "person_name", "device_id", "image_file", "bbox"]
 ATTENDANCE_HEADERS = ["timestamp", "date", "person_id", "person_name", "device_id", "score", "status", "mode"]
 
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "abc@123"
+ADMIN_USERNAME = CONFIG["admin"]["username"]
+ADMIN_PASSWORD = CONFIG["admin"]["password"]
 
-# Cấu hình tối ưu hiệu năng AWS - TĂNG HIỆU SUẤT
-MAX_WORKERS = 4  # Tăng số worker từ 2 lên 4 để xử lý đồng thời nhiều hơn
-FRAME_PROCESSING_LIMIT = 8  # Tăng giới hạn frame xử lý đồng thời
-FACE_CACHE_SIZE = 100  # Tăng cache size để giảm tính toán lặp lại
-SKIP_FRAME_RATIO = 3  # Xử lý 1 frame, bỏ qua 2 frame (giảm tải 66%)
-USE_OPTIMIZED_DETECTOR = True  # Sử dụng detector tối ưu hơn
-ENABLE_FRAME_SKIPPING = True   # Bật cơ chế bỏ frame khi hệ thống quá tải
+# Cấu hình hiệu suất từ config
+MAX_WORKERS = CONFIG["performance"]["max_workers"]
+SKIP_FRAME_RATIO = CONFIG["face_recognition"]["skip_frame_ratio"]
+MAX_FACES_PER_FRAME = CONFIG["face_recognition"]["max_faces_per_frame"]
+MAX_FACE_COMPARISONS = CONFIG["face_recognition"]["max_face_comparisons"]
+ENABLE_FRAME_SKIPPING = CONFIG["performance"]["enable_frame_skipping"]
+ENABLE_FACE_CACHE = CONFIG["performance"]["enable_face_cache"]
 
 
 def get_local_ip():
