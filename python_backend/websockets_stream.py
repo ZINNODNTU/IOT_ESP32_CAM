@@ -435,22 +435,6 @@ class WSHandler(tornado.websocket.WebSocketHandler):
                     # Nếu đã đạt ngưỡng cao, có thể dừng sớm
                     if best_score > FACE_SIMILARITY_THRESHOLD + 0.2:
                         break
-            else:
-                # Tối ưu hóa tính toán similarity - giới hạn số lượng so sánh
-                max_comparisons = min(20, len(known_faces))  # Giới hạn tối đa 20 so sánh
-                for i, (person_id, person_name, known_emb) in enumerate(known_faces):
-                    if i >= max_comparisons:
-                        break  # Dừng sau max_comparisons
-                    
-                    score = cosine_similarity(emb, known_emb)
-                    if score > best_score:
-                        best_score = score
-                        best_person_id = person_id
-                        best_person_name = person_name
-                        
-                    # Nếu đã đạt ngưỡng cao, có thể dừng sớm
-                    if best_score > FACE_SIMILARITY_THRESHOLD + 0.2:
-                        break
 
             if best_score < FACE_SIMILARITY_THRESHOLD:
                 best_person_id = ""
@@ -894,9 +878,18 @@ if __name__ == "__main__":
         idle_connection_timeout=300  # Giữ kết nối lâu hơn
     )
     
-    # Bind với cấu hình tối ưu
-    http_server.bind(PORT, address="0.0.0.0", reuse_port=True)
-    http_server.start(0)  # Sử dụng auto-detected số CPU cores
+    # Bind với cấu hình tối ưu - chỉ sử dụng reuse_port trên Linux
+    import platform
+    if platform.system().lower() == "linux":
+        http_server.bind(PORT, address="0.0.0.0", reuse_port=True)
+    else:
+        http_server.bind(PORT, address="0.0.0.0")
+    
+    # Tránh lỗi fork trên Windows - chỉ start 1 process
+    if platform.system().lower() == "windows":
+        http_server.start(1)  # Chỉ 1 process trên Windows
+    else:
+        http_server.start(0)  # Sử dụng auto-detected số CPU cores trên Linux
     
     # Cấu hình IOLoop cho hiệu năng cao
     io_loop = tornado.ioloop.IOLoop.current()
