@@ -482,17 +482,28 @@ class StreamHandler(tornado.web.RequestHandler):
             self.write("❌ Device not found")
             return
 
-        while True:
-            if client.outputFrame is None:
-                yield tornado.gen.sleep(0.1)
-                continue
+        try:
+            while True:
+                if client.outputFrame is None:
+                    yield tornado.gen.sleep(0.1)
+                    continue
 
-            self.write(b"--frame\r\n")
-            self.write(b"Content-Type: image/jpeg\r\n\r\n")
-            self.write(client.outputFrame)
-            self.write(b"\r\n")
-            yield self.flush()
-            yield tornado.gen.sleep(0.03)
+                self.write(b"--frame\r\n")
+                self.write(b"Content-Type: image/jpeg\r\n\r\n")
+                self.write(client.outputFrame)
+                self.write(b"\r\n")
+                try:
+                    yield self.flush()
+                except tornado.iostream.StreamClosedError:
+                    # Client đã đóng kết nối, thoát khỏi vòng lặp
+                    print(f"📹 Stream closed for device {slug}")
+                    break
+                yield tornado.gen.sleep(0.03)
+        except tornado.iostream.StreamClosedError:
+            # Client đã đóng kết nối trước khi bắt đầu stream
+            print(f"📹 Stream connection closed early for device {slug}")
+        except Exception as e:
+            print(f"📹 Stream error for device {slug}: {e}")
 
 
 class FaceStatusHandler(tornado.web.RequestHandler):
