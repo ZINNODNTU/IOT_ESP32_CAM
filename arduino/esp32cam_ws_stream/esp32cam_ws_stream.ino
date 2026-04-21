@@ -286,6 +286,14 @@ void loop() {
     return;
   }
   
+  // Kiểm tra JPEG data có hợp lệ không (có marker kết thúc 0xFFD9)
+  if (fb->len < 2 || fb->buf[fb->len-2] != 0xFF || fb->buf[fb->len-1] != 0xD9) {
+    Serial.println("⚠️ Invalid JPEG data (missing end marker). Skipping frame.");
+    esp_camera_fb_return(fb);
+    delay(10);
+    return;
+  }
+  
   // Gửi frame với timeout
   unsigned long sendStart = millis();
   bool sent = client.sendBinary((const char*)fb->buf, fb->len);
@@ -307,6 +315,9 @@ void loop() {
   
   // Giải phóng frame buffer
   esp_camera_fb_return(fb);
+  
+  // Thêm delay để tránh buffer overflow và cho camera nghỉ
+  delay(30);
   
   // Poll để xử lý message từ server
   client.poll();

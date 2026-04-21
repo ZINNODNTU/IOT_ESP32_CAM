@@ -353,7 +353,10 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         self.frame_counter += 1
         if self.frame_counter % SKIP_FRAME_RATIO != 0:
             # Bỏ qua frame này, chỉ cập nhật frame mới nhất
-            self.frame = cv2.imdecode(np.frombuffer(message, dtype=np.uint8), cv2.IMREAD_COLOR)
+            try:
+                self.frame = cv2.imdecode(np.frombuffer(message, dtype=np.uint8), cv2.IMREAD_COLOR)
+            except Exception as e:
+                print(f"⚠️ Frame decode error (skipped): {e}")
             return
 
         current_time = time.time()
@@ -361,7 +364,15 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         if current_time - self.last_processed_time < 0.05:  # Tối đa 20fps
             return
 
-        self.frame = cv2.imdecode(np.frombuffer(message, dtype=np.uint8), cv2.IMREAD_COLOR)
+        try:
+            self.frame = cv2.imdecode(np.frombuffer(message, dtype=np.uint8), cv2.IMREAD_COLOR)
+            if self.frame is None:
+                print(f"⚠️ Frame decode failed for device {self.id}, frame size: {len(message)}")
+                return
+        except Exception as e:
+            print(f"⚠️ Frame decode error: {e}")
+            return
+            
         self.last_processed_time = current_time
         
         # Chỉ xử lý nếu có worker available
