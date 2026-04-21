@@ -435,15 +435,22 @@ class WSHandler(tornado.websocket.WebSocketHandler):
                     # Nếu đã đạt ngưỡng cao, có thể dừng sớm
                     if best_score > FACE_SIMILARITY_THRESHOLD + 0.2:
                         break
-                        break
             else:
-                # Tính toán similarity với tất cả known faces
-                for person_id, person_name, known_emb in known_faces:
+                # Tối ưu hóa tính toán similarity - giới hạn số lượng so sánh
+                max_comparisons = min(20, len(known_faces))  # Giới hạn tối đa 20 so sánh
+                for i, (person_id, person_name, known_emb) in enumerate(known_faces):
+                    if i >= max_comparisons:
+                        break  # Dừng sau max_comparisons
+                    
                     score = cosine_similarity(emb, known_emb)
                     if score > best_score:
                         best_score = score
                         best_person_id = person_id
                         best_person_name = person_name
+                        
+                    # Nếu đã đạt ngưỡng cao, có thể dừng sớm
+                    if best_score > FACE_SIMILARITY_THRESHOLD + 0.2:
+                        break
 
             if best_score < FACE_SIMILARITY_THRESHOLD:
                 best_person_id = ""
