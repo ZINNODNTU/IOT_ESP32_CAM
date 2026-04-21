@@ -55,9 +55,7 @@ unsigned long lastWatchdogCheck = 0;
 bool cameraInitialized = false;
 
 // ================= UTILITY FUNCTIONS =================
-int max(int a, int b) {
-  return (a > b) ? a : b;
-}
+// Sử dụng min/max macro của Arduino thay vì tự định nghĩa
 
 void printSystemInfo() {
   Serial.println("\n=== SYSTEM INFO ===");
@@ -149,8 +147,8 @@ bool connectWiFi() {
 bool connectWebSocket() {
   Serial.println("Connecting to WebSocket...");
   
-  // Set timeout cho WebSocket
-  client.setConnectionTimeout(10, 5000); // 10s connection timeout
+  // Thư viện ArduinoWebsockets không hỗ trợ setConnectionTimeout
+  // Sử dụng timeout mặc định của thư viện
   
   bool connected = client.connect(ws_url);
   
@@ -300,11 +298,11 @@ void loop() {
     return;
   }
   
-  // Log mỗi 10 frame để giảm spam serial
+  // Log mỗi 5 frame để debug
   static unsigned long framesSent = 0;
   framesSent++;
-  if (framesSent % 10 == 0) {
-    Serial.printf("Frame %d sent (%d bytes, %lu ms)\n", framesSent, fb->len, sendTime);
+  if (framesSent % 5 == 0) {
+    Serial.printf("📡 Frame %d sent (%d bytes, %lu ms)\n", framesSent, fb->len, sendTime);
   }
   
   // Giải phóng frame buffer

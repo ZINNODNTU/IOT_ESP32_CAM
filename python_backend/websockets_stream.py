@@ -337,6 +337,18 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             print(f"✅ Device connected: {self.id} from {self.request.remote_ip}")
             return
 
+        # Debug: log kích thước frame
+        frame_size = len(message)
+        if frame_size > 0:
+            # Log mỗi 10 frame để tránh spam
+            if hasattr(self, 'debug_counter'):
+                self.debug_counter += 1
+            else:
+                self.debug_counter = 0
+            
+            if self.debug_counter % 10 == 0:
+                print(f"📦 Frame received from {self.id}: {frame_size} bytes")
+
         # Skip frame để giảm tải xử lý
         self.frame_counter += 1
         if self.frame_counter % SKIP_FRAME_RATIO != 0:
