@@ -34,11 +34,13 @@ ATTENDANCE_HEADERS = ["timestamp", "date", "person_id", "person_name", "device_i
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "abc@123"
 
-# Cấu hình tối ưu hiệu năng AWS
-MAX_WORKERS = 2  # Giảm số worker để tiết kiệm CPU
-FRAME_PROCESSING_LIMIT = 5  # Giới hạn số frame xử lý đồng thời
-FACE_CACHE_SIZE = 50  # Số lượng face embedding cache
-SKIP_FRAME_RATIO = 2  # Xử lý 1 frame, bỏ qua 1 frame (giảm tải 50%)
+# Cấu hình tối ưu hiệu năng AWS - TĂNG HIỆU SUẤT
+MAX_WORKERS = 4  # Tăng số worker từ 2 lên 4 để xử lý đồng thời nhiều hơn
+FRAME_PROCESSING_LIMIT = 8  # Tăng giới hạn frame xử lý đồng thời
+FACE_CACHE_SIZE = 100  # Tăng cache size để giảm tính toán lặp lại
+SKIP_FRAME_RATIO = 3  # Xử lý 1 frame, bỏ qua 2 frame (giảm tải 66%)
+USE_OPTIMIZED_DETECTOR = True  # Sử dụng detector tối ưu hơn
+ENABLE_FRAME_SKIPPING = True   # Bật cơ chế bỏ frame khi hệ thống quá tải
 
 
 def get_local_ip():
@@ -341,20 +343,39 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         # Giới hạn thời gian xử lý tối đa
         start_time = time.time()
         
+        # Kiểm tra nếu hệ thống quá tải thì bỏ frame này
+        if ENABLE_FRAME_SKIPPING and time.time() - self.last_processed_time < 0.03:
+            return  # Bỏ frame nếu xử lý quá nhanh (trên 30fps)
+        
         frame = rotate_by_degree(self.frame.copy(), self.application.camera_rotation_deg)
+        
+        # Resize frame để xử lý nhanh hơn (giảm kích thước)
+        if frame.shape[0] > 480 or frame.shape[1] > 640:
+            frame = cv2.resize(frame, (640, 480))
+            
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         
-        # Sử dụng phát hiện khuôn mặt nhanh hơn cho AWS
-        faces = self.application.face_detector.detectMultiScale(
-            gray,
-            scaleFactor=1.2,  # Tăng scaleFactor để nhanh hơn
-            minNeighbors=4,   # Giảm minNeighbors
-            minSize=(30, 30), # Giảm minSize
-        )
+        # Sử dụng phát hiện khuôn mặt tối ưu hơn
+        if USE_OPTIMIZED_DETECTOR:
+            # Cấu hình tối ưu cho tốc độ cao
+            faces = self.application.face_detector.detectMultiScale(
+                gray,
+                scaleFactor=1.3,  # Tăng scaleFactor để nhanh hơn
+                minNeighbors=3,   # Giảm minNeighbors để phát hiện nhiều hơn
+                minSize=(40, 40), # Tăng minSize để giảm false positive
+                flags=cv2.CASCADE_DO_CANNY_PRUNING  # Tối ưu hóa
+            )
+        else:
+            faces = self.application.face_detector.detectMultiScale(
+                gray,
+                scaleFactor=1.2,
+                minNeighbors=4,
+                minSize=(30, 30),
+            )
 
         # Giới hạn số lượng khuôn mặt xử lý
-        if len(faces) > 5:
-            faces = faces[:5]
+        if len(faces) > 4:
+            faces = faces[:4]  # Giảm từ 5 xuống 4 để tăng tốc
 
         with self.application.known_faces_lock:
             known_faces = list(self.application.known_faces)
@@ -391,12 +412,29 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             best_person_name = "Unknown"
             
             if cache_key:
-                # Sử dụng kết quả từ cache
+                # Sử dụng kết quả từ cache - không cần tính toán lại
                 for person_id, person_name, known_emb in known_faces:
                     if person_id == cache_key:
                         best_person_id = person_id
                         best_person_name = person_name
                         best_score = FACE_SIMILARITY_THRESHOLD + 0.1
+                        break  # Thêm break để tối ưu
+            else:
+                # Tối ưu hóa tính toán similarity - giới hạn số lượng so sánh
+                max_comparisons = min(20, len(known_faces))  # Giới hạn tối đa 20 so sánh
+                for i, (person_id, person_name, known_emb) in enumerate(known_faces):
+                    if i >= max_comparisons:
+                        break  # Dừng sau max_comparisons
+                    
+                    score = cosine_similarity(emb, known_emb)
+                    if score > best_score:
+                        best_score = score
+                        best_person_id = person_id
+                        best_person_name = person_name
+                        
+                    # Nếu đã đạt ngưỡng cao, có thể dừng sớm
+                    if best_score > FACE_SIMILARITY_THRESHOLD + 0.2:
+                        break
                         break
             else:
                 # Tính toán similarity với tất cả known faces

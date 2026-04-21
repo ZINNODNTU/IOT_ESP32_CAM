@@ -8,12 +8,12 @@ using namespace websockets;
 
 // ================= WIFI =================
 // ⚠️ CẤU HÌNH WIFI CHO MÔI TRƯỜNG SẢN PHẨM
-const char* ssid = "YOUR_WIFI_SSID";          // Thay bằng SSID WiFi thực tế
-const char* password = "YOUR_WIFI_PASSWORD";   // Thay bằng mật khẩu WiFi
+const char* ssid = "1";          // Thay bằng SSID WiFi thực tế
+const char* password = "14022021i";   // Thay bằng mật khẩu WiFi
 
 // ⚠️ SỬA IP SERVER AWS (Public IP hoặc Domain)
 // Ví dụ: ws://your-ec2-public-ip:3000/ws hoặc wss://your-domain.com/ws
-const char* ws_url = "ws://YOUR_AWS_PUBLIC_IP:3000/ws";
+const char* ws_url = "ws://13.239.29.180:3000/ws";
 
 // ⚠️ ID CAMERA - Đặt tên duy nhất cho mỗi camera
 const char* DEVICE_ID = "esp32cam_01";
@@ -156,15 +156,19 @@ void setup() {
 }
 
 // ================= CẤU HÌNH TỐI ƯU CHO AWS =================
-#define MAX_FRAME_SIZE 30000  // Giới hạn kích thước frame (30KB)
-#define TARGET_FPS 10         // Giảm FPS để giảm tải mạng
+#define MAX_FRAME_SIZE 20000  // Giảm kích thước frame tối đa (20KB)
+#define TARGET_FPS 8          // Giảm FPS để giảm tải mạng (từ 10 xuống 8)
 #define RECONNECT_DELAY 5000  // Thời gian chờ reconnect
-#define SEND_TIMEOUT_MS 5000  // Timeout khi gửi frame
+#define SEND_TIMEOUT_MS 3000  // Giảm timeout khi gửi frame (5s -> 3s)
+#define DYNAMIC_QUALITY       // Kích hoạt chất lượng động
+#define MIN_JPEG_QUALITY 8    // Chất lượng JPEG tối thiểu
+#define MAX_JPEG_QUALITY 15   // Chất lượng JPEG tối đa
 
 // ================= LOOP TỐI ƯU =================
 void loop() {
   static unsigned long lastFrameTime = 0;
   static unsigned long framesSent = 0;
+  static int currentJpegQuality = 12;  // Chất lượng JPEG hiện tại
   
   // Kiểm tra kết nối WebSocket
   if (!client.available()) {
@@ -182,7 +186,7 @@ void loop() {
   unsigned long currentTime = millis();
   if (currentTime - lastFrameTime < (1000 / TARGET_FPS)) {
     client.poll();  // Vẫn poll để giữ kết nối
-    delay(10);
+    delay(5);       // Giảm delay từ 10ms xuống 5ms
     return;
   }
 
@@ -190,7 +194,7 @@ void loop() {
   camera_fb_t *fb = esp_camera_fb_get();
   if (!fb) {
     Serial.println("❌ Capture failed");
-    delay(100);
+    delay(50);      // Giảm delay từ 100ms xuống 50ms
     esp_camera_fb_return(fb);
     return;
   }
