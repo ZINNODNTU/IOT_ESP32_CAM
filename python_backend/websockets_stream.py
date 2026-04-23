@@ -333,51 +333,66 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         print(f"🔌 New connection from {self.request.remote_ip}")
 
     def on_message(self, message):
+        # Xử lý device ID
         if self.id is None:
-            self.id = message
+            self.id = message.decode('utf-8') if isinstance(message, bytes) else message
             print(f"✅ Device connected: {self.id} from {self.request.remote_ip}")
             return
 
-        # Debug: log kích thước frame
-        frame_size = len(message)
-        if frame_size > 0:
-            # Log mỗi 10 frame để tránh spam
-            if hasattr(self, 'debug_counter'):
-                self.debug_counter += 1
-            else:
-                self.debug_counter = 0
-            
-            if self.debug_counter % 10 == 0:
-                print(f"📦 Frame received from {self.id}: {frame_size} bytes")
-
-        # Skip frame để giảm tải xử lý
-        self.frame_counter += 1
-        if self.frame_counter % SKIP_FRAME_RATIO != 0:
-            # Bỏ qua frame này, chỉ cập nhật frame mới nhất
-            try:
-                self.frame = cv2.imdecode(np.frombuffer(message, dtype=np.uint8), cv2.IMREAD_COLOR)
-            except Exception as e:
-                print(f"⚠️ Frame decode error (skipped): {e}")
-            return
-
-        current_time = time.time()
-        # Kiểm tra rate limiting - không xử lý quá nhiều frame trong thời gian ngắn
-        if current_time - self.last_processed_time < 0.05:  # Tối đa 20fps
-            return
-
+        # Decode frame
         try:
-            self.frame = cv2.imdecode(np.frombuffer(message, dtype=np.uint8), cv2.IMREAD_COLOR)
-            if self.frame is None:
-                print(f"⚠️ Frame decode failed for device {self.id}, frame size: {len(message)}")
+            frame = cv2.imdecode(np.frombuffer(message, dtype=np.uint8), cv2.IMREAD_COLOR)
+            if frame is None:
+                print(f"⚠️ Frame decode failed for device {self.id}, size: {len(message)}")
                 return
+            
+            # Lưu frame để xử lý
+            self.frame = frame
+            
+            # Debug log
+            if not hasattr(self, 'debug_counter'):
+                self.debug_counter = 0
+            self.debug_counter += 1
+            
+            if self.debug_counter % 20 == 0:
+                print(f"📦 Frame #{self.debug_counter} from {self.id}: {len(message)} bytes, shape: {frame.shape}")
+        
         except Exception as e:
             print(f"⚠️ Frame decode error: {e}")
             return
-            
-        self.last_processed_time = current_time
+
+        # Tăng frame counter
+        self.frame_counter += 1
         
-        # Chỉ xử lý nếu có worker available
-        tornado.ioloop.IOLoop.current().run_in_executor(self.executor, self.process_frames)
+        # Quyết định có xử lý face detection không
+        should_process_faces = (self.frame_counter % SKIP_FRAME_RATIO == 0)
+        
+        if should_process_faces:
+            # Xử lý face detection trong background
+            current_time = time.time()
+            if current_time - self.last_processed_time >= 0.05:
+                self.last_processed_time = current_time
+                tornado.ioloop.IOLoop.current().run_in_executor(self.executor, self.process_frames)
+            else:
+                # Nếu quá nhanh, chỉ encode frame
+                self.quick_encode_frame(frame)
+        else:
+            # Không xử lý face, chỉ encode frame cho video stream
+            self.quick_encode_frame(frame)
+    
+    def quick_encode_frame(self, frame):
+        """Encode frame nhanh cho video stream (không xử lý face)"""
+        try:
+            # Rotate nếu cần
+            if self.application.camera_rotation_deg != 0:
+                frame = rotate_by_degree(frame, self.application.camera_rotation_deg)
+            
+            # Encode JPEG
+            ok, encoded = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            if ok:
+                self.outputFrame = encoded.tobytes()
+        except Exception as e:
+            print(f"⚠️ Quick encode error: {e}")
 
     def process_frames(self):
         if self.frame is None:
@@ -385,10 +400,6 @@ class WSHandler(tornado.websocket.WebSocketHandler):
 
         # Giới hạn thời gian xử lý tối đa
         start_time = time.time()
-        
-        # Kiểm tra nếu hệ thống quá tải thì bỏ frame này
-        if ENABLE_FRAME_SKIPPING and time.time() - self.last_processed_time < 0.03:
-            return  # Bỏ frame nếu xử lý quá nhanh (trên 30fps)
         
         frame = rotate_by_degree(self.frame.copy(), self.application.camera_rotation_deg)
         
@@ -541,9 +552,13 @@ class WSHandler(tornado.websocket.WebSocketHandler):
 class StreamHandler(tornado.web.RequestHandler):
     @tornado.gen.coroutine
     def get(self, slug):
-        self.set_header("Cache-Control", "no-store")
+        print(f"🎥 Stream request for device: {slug}")
+        
+        self.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
         self.set_header("Content-Type", "multipart/x-mixed-replace;boundary=frame")
+        self.set_header("Connection", "close")
 
+        # Tìm device
         client = None
         for c in connectedDevices:
             if c.id == slug:
@@ -551,31 +566,58 @@ class StreamHandler(tornado.web.RequestHandler):
                 break
 
         if client is None:
+            print(f"❌ Device '{slug}' not found. Connected devices: {[c.id for c in connectedDevices]}")
+            self.set_status(404)
             self.write("❌ Device not found")
             return
+
+        print(f"✅ Found device: {slug}, outputFrame: {client.outputFrame is not None}")
+
+        # Đợi frame đầu tiên (tối đa 5 giây)
+        wait_count = 0
+        while client.outputFrame is None and wait_count < 50:
+            yield tornado.gen.sleep(0.1)
+            wait_count += 1
+        
+        if client.outputFrame is None:
+            print(f"⚠️ No frames available from {slug} after 5 seconds")
+            self.set_status(503)
+            self.write("⚠️ No video frames available")
+            return
+
+        print(f"🎬 Starting stream for {slug}")
+        frame_count = 0
 
         try:
             while True:
                 if client.outputFrame is None:
-                    yield tornado.gen.sleep(0.1)
+                    yield tornado.gen.sleep(0.05)
                     continue
 
                 self.write(b"--frame\r\n")
                 self.write(b"Content-Type: image/jpeg\r\n\r\n")
                 self.write(client.outputFrame)
                 self.write(b"\r\n")
+                
                 try:
                     yield self.flush()
+                    frame_count += 1
+                    
+                    if frame_count % 30 == 0:
+                        print(f"📺 Streamed {frame_count} frames to {slug}")
+                        
                 except tornado.iostream.StreamClosedError:
-                    # Client đã đóng kết nối, thoát khỏi vòng lặp
-                    print(f"📹 Stream closed for device {slug}")
+                    print(f"📹 Stream closed for device {slug} after {frame_count} frames")
                     break
-                yield tornado.gen.sleep(0.03)
+                    
+                yield tornado.gen.sleep(0.033)  # ~30fps max
+                
         except tornado.iostream.StreamClosedError:
-            # Client đã đóng kết nối trước khi bắt đầu stream
             print(f"📹 Stream connection closed early for device {slug}")
         except Exception as e:
-            print(f"📹 Stream error for device {slug}: {e}")
+            print(f"❌ Stream error for device {slug}: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 class FaceStatusHandler(tornado.web.RequestHandler):
