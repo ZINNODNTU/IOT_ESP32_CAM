@@ -60,6 +60,7 @@ MAX_FACES_PER_FRAME = CONFIG["face_recognition"]["max_faces_per_frame"]
 MAX_FACE_COMPARISONS = CONFIG["face_recognition"]["max_face_comparisons"]
 ENABLE_FRAME_SKIPPING = CONFIG["performance"]["enable_frame_skipping"]
 ENABLE_FACE_CACHE = CONFIG["performance"]["enable_face_cache"]
+USE_OPTIMIZED_DETECTOR = True  # Sử dụng detector tối ưu cho hiệu năng cao
 
 
 def get_local_ip():

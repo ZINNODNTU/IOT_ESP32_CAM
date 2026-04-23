@@ -7,15 +7,19 @@
 using namespace websockets;
 
 // ================= CẤU HÌNH WIFI =================
-const char* ssid = "1";               // Thay bằng SSID WiFi thực tế
-const char* password = "14022021i";    // Thay bằng mật khẩu WiFi
+const char* ssid = "1";        // ⚠️ THAY BẰNG SSID WIFI THỰC TẾ
+const char* password = "14022021i"; // ⚠️ THAY BẰNG MẬT KHẨU WIFI
 
 // ================= CẤU HÌNH SERVER =================
 // CHO LOCAL TESTING (PC Windows):
-// const char* ws_url = "ws://192.168.5.183:3000/ws";
+// const char* ws_url = "ws://192.168.x.x:3000/ws";
 
-// CHO AWS SERVER:
-const char* ws_url = "ws://13.239.29.180:3000/ws";
+// CHO AWS SERVER (EC2 Public IP):
+// ⚠️ THAY ĐỔI IP BÊN DƯỚI BẰNG PUBLIC IP CỦA AWS EC2 INSTANCE
+const char* ws_url = "ws://YOUR_AWS_PUBLIC_IP:3000/ws";
+
+// VÍ DỤ:
+// const char* ws_url = "ws://13.239.29.180:3000/ws";
 
 // ================= CẤU HÌNH CAMERA =================
 #define DEVICE_ID "esp32cam_01"

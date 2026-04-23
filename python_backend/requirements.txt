@@ -1,6 +1,34 @@
-tornado
-numpy
-imutils
-opencv-python
-websockets
+# ================= CORE DEPENDENCIES =================
+tornado>=6.3.3
+numpy>=1.24.0
+opencv-python>=4.8.0
+imutils>=0.5.4
 
+# ================= OPTIONAL DEPENDENCIES =================
+# Uncomment nếu cần thêm tính năng
+
+# For better performance
+# opencv-contrib-python>=4.8.0  # Thêm các module mở rộng của OpenCV
+
+# For production monitoring
+# psutil>=5.9.0  # Monitor CPU, memory usage
+# prometheus-client>=0.17.0  # Metrics cho monitoring
+
+# For logging
+# python-json-logger>=2.0.7  # Structured logging
+
+# ================= NOTES =================
+# - opencv-python: Thư viện xử lý ảnh và nhận diện khuôn mặt
+# - tornado: Web framework và WebSocket server
+# - numpy: Xử lý mảng và tính toán vector
+# - imutils: Tiện ích xử lý ảnh (resize, rotate)
+# - websockets: Không cần thiết vì tornado đã có WebSocket built-in
+
+# ================= INSTALLATION =================
+# pip install -r requirements.txt
+
+# ================= AWS EC2 SPECIFIC =================
+# Trên Ubuntu/Debian, cài đặt thêm:
+# sudo apt install -y python3-opencv libopencv-dev
+# sudo apt install -y build-essential cmake pkg-config
+# sudo apt install -y libjpeg-dev libpng-dev libtiff-dev
