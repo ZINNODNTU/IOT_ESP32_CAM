@@ -76,21 +76,13 @@ def get_local_ip():
 
 
 
-def is_aws_environment() -> bool:
-    """Kiểm tra xem có đang chạy trên AWS EC2 không"""
-    try:
-        with urllib.request.urlopen("http://169.254.169.254/latest/meta-data/", timeout=0.5) as response:
-            return response.status == 200
-    except Exception:
-        return False
-
-
 def fetch_public_ip(timeout: float = 2.0) -> str:
-    """Lấy public IP từ AWS metadata hoặc dịch vụ public IP."""
+    """Lấy public IP ưu tiên từ AWS metadata, fallback sang dịch vụ public IP."""
     sources = [
         "http://169.254.169.254/latest/meta-data/public-ipv4",
         "https://checkip.amazonaws.com",
         "https://api.ipify.org",
+        "https://ifconfig.me/ip",
     ]
 
     for url in sources:
@@ -102,27 +94,21 @@ def fetch_public_ip(timeout: float = 2.0) -> str:
         except Exception:
             continue
 
-    return None
+    raise RuntimeError(
+        "Không lấy được public IP. Hãy cấu hình PUBLIC_BASE_URL, PUBLIC_HOST, AWS_PUBLIC_IP hoặc EC2_PUBLIC_IP."
+    )
+
 
 
 def get_public_host() -> str:
-    """Trả về host phù hợp: local IP cho development, public IP cho AWS"""
-    # 1. Kiểm tra environment variables trước
+    """Chỉ trả về public URL hoặc public IP, không fallback sang private/local IP."""
     for env_name in ("PUBLIC_BASE_URL", "PUBLIC_HOST", "AWS_PUBLIC_IP", "EC2_PUBLIC_IP"):
         value = (os.getenv(env_name) or "").strip()
         if value:
             if env_name == "PUBLIC_BASE_URL":
                 return value.rstrip("/")
             return value
-    
-    # 2. Nếu đang chạy trên AWS, lấy public IP
-    if is_aws_environment():
-        public_ip = fetch_public_ip()
-        if public_ip:
-            return public_ip
-    
-    # 3. Fallback: Lấy local IP (cho Windows/local development)
-    return get_local_ip()
+    return fetch_public_ip()
 
 
 
@@ -133,6 +119,7 @@ def build_stream_base_url(handler: tornado.web.RequestHandler, port: int) -> str
 
     protocol = handler.request.protocol or "http"
     return f"{protocol}://{public_host}:{port}/video_feed/"
+
 # def build_stream_base_url(handler, port):
 #     local_ip = get_local_ip()
 #     protocol = handler.request.protocol or "http"
