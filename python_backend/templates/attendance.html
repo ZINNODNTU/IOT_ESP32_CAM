@@ -141,7 +141,7 @@
 
       .content {
         display: grid;
-        grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+        grid-template-columns: minmax(320px, 1fr) minmax(0, 2fr);
         gap: 14px;
         align-items: start;
       }
@@ -155,7 +155,7 @@
 
       .streams {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+        grid-template-columns: 1fr;
         gap: 12px;
       }
 
@@ -164,6 +164,7 @@
         border-radius: 14px;
         overflow: hidden;
         background: #0a1226;
+        max-width: 100%;
       }
 
       .stream-head {
@@ -172,6 +173,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        background: rgba(16, 26, 52, 0.6);
       }
 
       .chip {
@@ -180,17 +182,36 @@
         padding: 4px 10px;
         font-size: 12px;
         color: #d1d5db;
+        background: rgba(15, 23, 42, 0.8);
       }
 
       .stream-card img {
         width: 100%;
+        height: auto;
+        max-height: 400px;
+        object-fit: contain;
         display: block;
         background: #020617;
       }
 
-      .stream-body { padding: 10px 12px; }
-      .face-list { margin: 0; padding-left: 18px; }
-      .face-list li { margin: 4px 0; font-size: 13px; color: #d7ddeb; }
+      .stream-body {
+        padding: 10px 12px;
+        background: rgba(10, 18, 38, 0.5);
+      }
+      
+      .face-list {
+        margin: 0;
+        padding-left: 18px;
+        max-height: 150px;
+        overflow-y: auto;
+      }
+      
+      .face-list li {
+        margin: 4px 0;
+        font-size: 13px;
+        color: #d7ddeb;
+        padding: 4px 0;
+      }
 
       .table-wrap {
         overflow: auto;
@@ -214,19 +235,60 @@
 
       .empty { color: var(--muted); font-size: 14px; }
 
+      /* Responsive Design */
       @media (max-width: 1200px) {
-        .content { grid-template-columns: 1fr; }
+        .content {
+          grid-template-columns: 1fr;
+        }
+        .stream-card img {
+          max-height: 350px;
+        }
       }
 
       @media (max-width: 900px) {
         .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .streams { grid-template-columns: 1fr; }
         .state { width: 100%; margin-left: 0; }
+        .stream-card img {
+          max-height: 300px;
+        }
       }
 
       @media (max-width: 560px) {
         .app { padding: 14px; }
         .stats { grid-template-columns: 1fr; }
+        .brand h1 { font-size: 20px; }
+        .brand p { font-size: 12px; }
+        .stream-card img {
+          max-height: 250px;
+        }
+        .btn {
+          padding: 8px 12px;
+          font-size: 14px;
+        }
+      }
+
+      /* Scrollbar styling */
+      .face-list::-webkit-scrollbar,
+      .table-wrap::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .face-list::-webkit-scrollbar-track,
+      .table-wrap::-webkit-scrollbar-track {
+        background: rgba(15, 23, 42, 0.5);
+        border-radius: 4px;
+      }
+
+      .face-list::-webkit-scrollbar-thumb,
+      .table-wrap::-webkit-scrollbar-thumb {
+        background: rgba(59, 130, 246, 0.5);
+        border-radius: 4px;
+      }
+
+      .face-list::-webkit-scrollbar-thumb:hover,
+      .table-wrap::-webkit-scrollbar-thumb:hover {
+        background: rgba(59, 130, 246, 0.7);
       }
     </style>
   </head>

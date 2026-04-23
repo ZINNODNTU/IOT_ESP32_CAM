@@ -12,8 +12,8 @@ const char* password = "14022021i"; // ⚠️ THAY BẰNG MẬT KHẨU
 
 // ================= CẤU HÌNH SERVER =================
 // LOCAL: const char* ws_url = "ws://192.168.x.x:3000/ws";
- AWS: const char* ws_url = "ws://13.239.29.180:3000/ws";
-//const char* ws_url = "ws://192.168.5.183:3000/ws";
+//const char* ws_url = "ws://13.239.29.180:3000/ws";
+const char* ws_url = "ws://192.168.5.183:3000/ws";
 
 // ================= CẤU HÌNH CAMERA =================
 #define DEVICE_ID "esp32cam_01"  // ID duy nhất cho mỗi camera
