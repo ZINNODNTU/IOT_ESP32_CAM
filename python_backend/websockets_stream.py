@@ -900,7 +900,7 @@ class AdminRegisterPageHandler(BaseHandler):
 
 class RootHandler(tornado.web.RequestHandler):
     def get(self):
-        self.redirect("/attendance")
+        self.render("cover_page.html")
 
 
 application = tornado.web.Application(
