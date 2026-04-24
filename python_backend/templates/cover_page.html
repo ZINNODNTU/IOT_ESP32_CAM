@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trang Bìa - Hệ Thống Điểm Danh Khuôn Mặt</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .cover-container {
+            background: linear-gradient(135deg, #2d4a7c 0%, #1e3c72 100%);
+            border: 3px solid #4a90e2;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            max-width: 900px;
+            width: 100%;
+            padding: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cover-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #4a90e2, #63b3ed, #4a90e2);
+        }
+
+        .header-section {
+            background: rgba(74, 144, 226, 0.2);
+            border: 2px solid #4a90e2;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .university-name {
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .department-info {
+            color: #e0e7ff;
+            font-size: 16px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            line-height: 1.6;
+        }
+
+        .title-section {
+            background: rgba(30, 60, 114, 0.6);
+            border: 2px solid #4a90e2;
+            border-radius: 15px;
+            padding: 35px;
+            margin-bottom: 40px;
+            text-align: center;
+        }
+
+        .project-title {
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            line-height: 1.5;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .students-section {
+            background: rgba(42, 82, 152, 0.4);
+            border-radius: 15px;
+            padding: 35px;
+            margin-bottom: 30px;
+        }
+
+        .section-label {
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .students-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .student-item {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(74, 144, 226, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+            color: #ffffff;
+            font-size: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .student-item:hover {
+            background: rgba(74, 144, 226, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(74, 144, 226, 0.4);
+        }
+
+        .student-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .student-id {
+            color: #b3d4ff;
+            font-size: 14px;
+        }
+
+        .footer-section {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .start-button {
+            background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 5px 20px rgba(74, 144, 226, 0.4);
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .start-button:hover {
+            background: linear-gradient(135deg, #357abd 0%, #2a5298 100%);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(74, 144, 226, 0.6);
+        }
+
+        .start-button:active {
+            transform: translateY(-1px);
+        }
+
+        @media (max-width: 768px) {
+            .cover-container {
+                padding: 25px;
+            }
+
+            .university-name {
+                font-size: 22px;
+            }
+
+            .department-info {
+                font-size: 14px;
+            }
+
+            .project-title {
+                font-size: 20px;
+            }
+
+            .students-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .start-button {
+                padding: 12px 40px;
+                font-size: 16px;
+            }
+        }
+
+        .decorative-line {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #4a90e2, transparent);
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="cover-container">
+        <div class="header-section">
+            <div class="university-name">
+                ĐẠI HỌC CÔNG NGHỆ ĐÔNG NAI
+            </div>
+            <div class="department-info">
+                KHOA CÔNG NGHỆ THÔNG TIN - TRUYỀN THÔNG<br>
+                NGÀNH CÔNG NGHỆ THÔNG TIN
+            </div>
+        </div>
+
+        <div class="decorative-line"></div>
+
+        <div class="title-section">
+            <div class="project-title">
+                ĐỀ TÀI: HỆ THỐNG ĐIỂM DANH BẰNG KHUÔN MẶT<br>
+                WEB QUẢN LÝ
+            </div>
+        </div>
+
+        <div class="decorative-line"></div>
+
+        <div class="students-section">
+            <div class="section-label">SINH VIÊN THỰC HIỆN</div>
+            <div class="students-grid">
+                <div class="student-item">
+                    <div class="student-name">Giáp Minh Hải Đăng</div>
+                    <div class="student-id">MSSV: 1822040357</div>
+                </div>
+                <div class="student-item">
+                    <div class="student-name">Nguyễn Khánh Duy</div>
+                    <div class="student-id">MSSV: 1822030329</div>
+                </div>
+                <div class="student-item">
+                    <div class="student-name">Vũ Hoàng Anh</div>
+                    <div class="student-id">MSSV: 1822040470</div>
+                </div>
+                <div class="student-item">
+                    <div class="student-name">Phạm La Chí Bảo</div>
+                    <div class="student-id">MSSV: 1822040364</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-section">
+            <a href="/index.html" class="start-button">→ Điều Khiển</a>
+        </div>
+    </div>
+</body>
+</html>
